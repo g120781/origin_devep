@@ -1,0 +1,100 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <errno.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+
+int main(int argc, char **argv)
+{
+    int server_sockid,client_sockid;
+    int iRet;
+    struct sockaddr_in server_addr,client_addr;
+    int client_size, readsize;
+    char *ip = "127.0.1.1";
+    pid_t pid;
+
+    if(argc !=2)
+    {
+         printf("parameter error!");
+	 exit(1);
+    }
+    
+    server_sockid = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_sockid < 0)
+    {
+        perror("socket create error!");
+	exit(2);
+    }
+
+    memset(&server_addr, 0, sizeof(server_addr));
+    memset(&client_addr, 0, sizeof(client_addr));
+    server_addr.sin_family = AF_INET;
+  //  server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_addr.s_addr = inet_addr(ip);
+    server_addr.sin_port = htons(atoi(argv[1]));
+
+    if(bind(server_sockid, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0)
+    {
+        perror("bind error");
+	exit(5);
+    }
+
+    iRet = listen(server_sockid,10);
+    if(iRet != 0)
+    {
+        perror("listern error");
+	exit(3);
+    }
+
+    client_size = sizeof(client_addr);
+    
+    while(1)
+    {
+    client_sockid = accept(server_sockid, (struct sockaddr_in *)&client_addr, &client_size);
+    if(client_sockid < 0)
+    {
+        perror("accept eroror");
+	exit(4);
+    }
+
+    pid = fork();
+    
+    if (pid < 0)
+    {
+        perror("fork error");
+	exit(1);
+    }
+    else if(pid == 0)
+    {
+        unsigned char buf[4096];
+        close(server_sockid);
+
+        while(1)
+        {
+  	    memset(buf, 0, sizeof(buf));
+            readsize = read(client_sockid, buf, sizeof(buf)-1);
+	    if(readsize > 0)
+	    {
+	        printf("server get data : %s",buf);
+	    }
+	    else
+	    {
+	        printf("read socket error, client sockid =%d\n", client_sockid);
+	        break;
+	    }
+	}
+	close(client_sockid);
+	exit(0);
+    }
+    else
+    { 
+        close(client_sockid);
+    }
+
+    }
+    return 0;
+
+}
